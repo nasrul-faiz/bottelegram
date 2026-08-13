@@ -4,6 +4,7 @@
 
 import logging
 import os
+import shutil
 from configparser import ConfigParser
 from dotenv import load_dotenv
 from logging.handlers import RotatingFileHandler
@@ -19,6 +20,13 @@ def strtobool(val):
         raise ValueError(f"invalid truth value {val!r}")
 
 load_dotenv("config.env")
+
+# Ensure GitPython can find a valid git executable in containerized or restricted environments.
+# This prevents the noisy "Bad git executable" startup warning and avoids updater-related crashes.
+_github_git = shutil.which("git")
+if _github_git:
+    os.environ.setdefault("GIT_PYTHON_GIT_EXECUTABLE", _github_git)
+    os.environ.setdefault("GIT_PYTHON_REFRESH", "quiet")
 
 # Bot token dari @Botfather
 TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "5946129966:AAH0LPl2Ww9txlVQkmRa2fPp0AzEZH1IgvU")
