@@ -3,6 +3,10 @@
 # t.me/SharingUserbot & t.me/Lunatic0de
 
 import asyncio
+import json
+import os
+from datetime import datetime, timezone
+from pathlib import Path
 
 from pyrogram import Client, filters
 from pyrogram.errors import FloodWait
@@ -11,6 +15,32 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 from bot import Bot
 from config import ADMINS, CHANNEL_ID, DISABLE_CHANNEL_BUTTON, LOGGER
 from helper_func import encode
+
+
+def save_generated_link(link: str, title: str = "Generated link", description: str = ""):
+    try:
+        path = Path(os.environ.get("BOT_LINKS_PATH", "generated_links.json"))
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if path.exists():
+            with path.open("r", encoding="utf-8") as handle:
+                data = json.load(handle)
+        else:
+            data = []
+        if not isinstance(data, list):
+            data = []
+        record = {
+            "id": (data[0]["id"] if data else 0) + 1,
+            "title": title,
+            "link": link,
+            "description": description,
+            "source": "telegram",
+            "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        data.insert(0, record)
+        with path.open("w", encoding="utf-8") as handle:
+            json.dump(data, handle, ensure_ascii=False, indent=2)
+    except Exception as exc:
+        LOGGER(__name__).warning(f"[SAVE_LINK] gagal menyimpan link: {exc}")
 
 
 @Bot.on_message(
@@ -91,6 +121,7 @@ async def channel_post(client: Client, message: Message):
             ]
         )
 
+        save_generated_link(link=link, title="Telegram generated link", description="Link dibuat otomatis dari kiriman media")
         await reply_text.edit_text(
             f"<b>Link Sharing File Berhasil Di Buat :</b>\n\n{link}",
             reply_markup=reply_markup,

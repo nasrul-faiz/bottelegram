@@ -13,6 +13,7 @@
         --muted: #a1a1aa;
         --green: #34d399;
         --red: #f87171;
+        --blue: #60a5fa;
         --border: #374151;
       }
       * { box-sizing: border-box; }
@@ -71,6 +72,40 @@
         font-weight: 700;
         word-break: break-word;
       }
+      .content {
+        display: grid;
+        grid-template-columns: 1.1fr 1.4fr;
+        gap: 24px;
+        margin-bottom: 24px;
+      }
+      .panel {
+        background: rgba(17, 24, 39, 0.9);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 18px;
+      }
+      form {
+        display: grid;
+        gap: 12px;
+      }
+      input, textarea, button {
+        width: 100%;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #020817;
+        color: var(--text);
+        padding: 12px 14px;
+        font: inherit;
+      }
+      textarea {
+        resize: vertical;
+        min-height: 100px;
+      }
+      button {
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        font-weight: 700;
+        cursor: pointer;
+      }
       .logs {
         background: rgba(17, 24, 39, 0.9);
         border: 1px solid var(--border);
@@ -87,15 +122,44 @@
       pre {
         margin: 0;
         padding: 18px;
-        max-height: 520px;
+        max-height: 420px;
         overflow: auto;
         font-size: 0.88rem;
         line-height: 1.5;
         color: #dbeafe;
         background: #020817;
       }
+      .link-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 12px;
+      }
+      .link-item {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: rgba(15, 23, 42, 0.8);
+        padding: 14px;
+      }
+      .link-item h3 {
+        margin: 0 0 8px;
+        font-size: 1.05rem;
+      }
+      .link-item a {
+        color: var(--blue);
+        word-break: break-word;
+      }
+      .meta {
+        color: var(--muted);
+        font-size: 0.8rem;
+        margin-top: 8px;
+      }
       a {
         color: #8ec5ff;
+      }
+      @media (max-width: 800px) {
+        .content { grid-template-columns: 1fr; }
       }
     </style>
   </head>
@@ -123,6 +187,39 @@
         </div>
       </div>
 
+      <div class="content">
+        <div class="panel">
+          <h2>Save generated link</h2>
+          <form id="linkForm">
+            <input type="text" id="linkTitle" name="title" placeholder="Judul / nama link" value="Generated link">
+            <input type="url" id="linkUrl" name="link" placeholder="https://example.com/share/123" required>
+            <textarea id="linkDescription" name="description" placeholder="Catatan / keterangan link"></textarea>
+            <button type="submit">Save link</button>
+          </form>
+        </div>
+
+        <div class="panel">
+          <h2>Saved links</h2>
+          {% if generated_links %}
+            <ul class="link-list" id="savedLinksList">
+              {% for item in generated_links %}
+                <li class="link-item">
+                  <h3>{{ item.title }}</h3>
+                  <a href="{{ item.link }}" target="_blank" rel="noreferrer">{{ item.link }}</a>
+                  {% if item.description %}
+                    <div class="meta">{{ item.description }}</div>
+                  {% endif %}
+                  <div class="meta">{{ item.created_at }}</div>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p id="emptyState">Belum ada link yang disimpan.</p>
+            <ul class="link-list" id="savedLinksList" style="display:none;"></ul>
+          {% endif %}
+        </div>
+      </div>
+
       <div class="logs">
         <div class="logs-header">
           <strong>Recent logs</strong>
@@ -132,5 +229,63 @@
 {% endfor %}</pre>
       </div>
     </div>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        const form = document.getElementById('linkForm');
+        if (!form) return;
+
+        form.addEventListener('submit', async function (event) {
+          event.preventDefault();
+
+          const payload = {
+            title: document.getElementById('linkTitle').value || 'Generated link',
+            link: document.getElementById('linkUrl').value.trim(),
+            description: document.getElementById('linkDescription').value.trim(),
+          };
+
+          if (!payload.link) {
+            document.getElementById('linkUrl').focus();
+            return;
+          }
+
+          try {
+            const response = await fetch('/api/links', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+              const errorData = await response.json().catch(() => ({}));
+              throw new Error(errorData.error || 'Gagal menyimpan link');
+            }
+
+            const saved = await response.json();
+            const list = document.getElementById('savedLinksList');
+            const emptyState = document.getElementById('emptyState');
+
+            if (emptyState) emptyState.remove();
+            if (list) {
+              list.style.display = 'grid';
+              const item = document.createElement('li');
+              item.className = 'link-item';
+              item.innerHTML = `
+                <h3>${saved.title}</h3>
+                <a href="${saved.link}" target="_blank" rel="noreferrer">${saved.link}</a>
+                ${saved.description ? `<div class="meta">${saved.description}</div>` : ''}
+                <div class="meta">${saved.created_at}</div>
+              `;
+              list.prepend(item);
+            }
+
+            form.reset();
+            document.getElementById('linkTitle').value = 'Generated link';
+          } catch (error) {
+            alert(error.message);
+          }
+        });
+      });
+    </script>
   </body>
 </html>
